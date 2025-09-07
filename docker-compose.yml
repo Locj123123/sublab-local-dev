@@ -1,0 +1,87 @@
+version: '3.8'
+
+services:
+  # Redis для кешування та черг
+  redis:
+    image: redis:7-alpine
+    container_name: sublab-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - sublab-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # Frontend - React Application
+  frontend:
+    build:
+      context: ./frontsublab
+      dockerfile: Dockerfile
+    container_name: sublab-frontend
+    ports:
+      - "5173:5173"
+    environment:
+      - VITE_SUPABASE_URL=http://127.0.0.1:54321
+      - VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0
+      - VITE_STRIPE_PUBLIC_KEY=${VITE_STRIPE_PUBLIC_KEY}
+    env_file:
+      - .env
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5173"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - sublab-network
+    volumes:
+      - ./frontsublab:/app
+      - /app/node_modules
+
+  # Chat Assistant API
+  chat-assistant:
+    build:
+      context: ./chat-assistant-api
+      dockerfile: Dockerfile
+    container_name: sublab-chat-assistant
+    ports:
+      - "8001:8000"
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - SUPABASE_URL=http://host.docker.internal:54321
+      - SUPABASE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU
+    env_file:
+      - .env
+    depends_on:
+      redis:
+        condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - sublab-network
+    volumes:
+      - ./chat-assistant-api:/app
+
+networks:
+  sublab-network:
+    driver: bridge
+
+volumes:
+  redis_data:
+    driver: local
