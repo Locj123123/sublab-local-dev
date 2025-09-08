@@ -1,10 +1,10 @@
 #!/bin/bash
 
 # SubLab Local Development Server Startup Script
-# Цей скрипт запускає лише існуючі сервери SubLab локально
+# Цей скрипт запускає лише існуючі сервери SubLab локально з єдиною базою даних Supabase
 
-echo "🚀 Запуск SubLab серверів локально..."
-echo "=================================="
+echo "🚀 Запуск SubLab серверів локально з єдиною базою даних..."
+echo "========================================================"
 
 # Перевіряємо наявність Docker
 if ! command -v docker &> /dev/null; then
@@ -23,31 +23,18 @@ fi
 echo "✅ Перевірки пройшли успішно"
 echo ""
 
-# Створюємо файл .env якщо його немає
+# Перевіряємо наявність файлу .env
 if [ ! -f ".env" ]; then
-    echo "📝 Створення файлу .env з базовими налаштуваннями..."
-    cat > .env << EOF
-# Локальна база даних
-DATABASE_URL=postgresql://postgres:postgres123@localhost:5432/sublab_db
-POSTGRES_DB=sublab_db
-POSTGRES_USER=postgres
-POSTGRES_PASSWORD=postgres123
-
-# Redis
-REDIS_URL=redis://localhost:6379
-
-# API ключі (додайте свої)
-OPENAI_API_KEY=
-ELEVENLABS_API_KEY=
-REPLICATE_API_TOKEN=
-
-# Supabase (для сумісності)
-SUPABASE_URL=http://localhost:5432
-SUPABASE_KEY=local-development-key
-VITE_SUPABASE_URL=http://localhost:5432
-VITE_SUPABASE_KEY=local-development-key
-EOF
-    echo "✅ Файл .env створено з базовими налаштуваннями"
+    echo "❌ Файл .env не знайдено!"
+    echo "Будь ласка, створіть файл .env з вашими API ключами"
+    echo "Приклад:"
+    echo "OPENAI_API_KEY=your_openai_key"
+    echo "ELEVENLABS_API_KEY=your_elevenlabs_key"
+    echo "REPLICATE_API_TOKEN=your_replicate_token"
+    echo "VITE_STRIPE_PUBLIC_KEY=your_stripe_key"
+    exit 1
+else
+    echo "✅ Файл .env знайдено"
 fi
 
 # Перевіряємо які сервіси існують
@@ -58,7 +45,7 @@ available_services=()
 profiles_to_start=()
 
 # Базові сервіси (завжди запускаються)
-available_services+=("postgres" "redis" "frontend" "chat-assistant")
+available_services+=("supabase" "redis" "frontend" "chat-assistant")
 
 # Перевіряємо наявність папок для SubLab сервісів
 declare -A sublab_services=(
@@ -82,7 +69,7 @@ done
 echo ""
 echo "📋 Сервіси для запуску:"
 echo "======================="
-echo "• PostgreSQL (База даних)"
+echo "• Supabase Local (Єдина база даних та API для всіх сервісів)"
 echo "• Redis (Кеш та черги)"
 echo "• Frontend (React App)"
 echo "• Chat Assistant API"
@@ -98,6 +85,17 @@ echo ""
 # Зупиняємо існуючі контейнери
 echo "🛑 Зупинка існуючих контейнерів..."
 docker-compose down
+
+# Запускаємо Supabase CLI локально
+echo "🗄️ Запуск локального Supabase..."
+cd frontsublab
+if ! supabase status > /dev/null 2>&1; then
+    echo "Запуск Supabase CLI..."
+    supabase start
+else
+    echo "✅ Supabase CLI вже запущений"
+fi
+cd ..
 
 # Формуємо команду запуску з профілями
 compose_command="docker-compose"
@@ -122,10 +120,10 @@ echo "📊 Статус сервісів:"
 echo "==================="
 
 # Перевіряємо базові сервіси
-if docker ps --format "table {{.Names}}" | grep -q "sublab-postgres"; then
-    echo "✅ PostgreSQL (порт 5432) - працює"
+if curl -s -f "http://localhost:54321/rest/v1/" > /dev/null 2>&1; then
+    echo "✅ Supabase Local (порт 54321) - працює"
 else
-    echo "❌ PostgreSQL (порт 5432) - не працює"
+    echo "❌ Supabase Local (порт 54321) - не працює"
 fi
 
 if docker ps --format "table {{.Names}}" | grep -q "sublab-redis"; then
@@ -170,7 +168,8 @@ echo "🎉 Запуск завершено!"
 echo ""
 echo "📋 Доступні сервіси:"
 echo "===================="
-echo "• PostgreSQL Database: localhost:5432"
+echo "• Supabase Database (Єдина БД): localhost:54321 (API) / localhost:54322 (PostgreSQL)"
+echo "• Supabase Studio: http://localhost:54323"
 echo "• Redis Cache: localhost:6379"
 echo "• Frontend (React App): http://localhost:5173"
 echo "• Chat Assistant API: http://localhost:8001"
@@ -189,7 +188,7 @@ echo "• Переглянути логи: docker-compose logs -f [service-name]
 echo "• Зупинити всі сервіси: docker-compose down"
 echo "• Перезапустити сервіс: docker-compose restart [service-name]"
 echo "• Переглянути статус: docker-compose ps"
-echo "• Підключитися до БД: psql postgresql://postgres:postgres123@localhost:5432/sublab_db"
+echo "• Підключитися до Supabase БД: psql postgresql://postgres:postgres@localhost:54322/postgres"
 echo ""
 echo "💡 Щоб додати новий SubLab сервіс:"
 echo "1. Створіть папку ./sublab-vX (наприклад ./sublab-v1)"
