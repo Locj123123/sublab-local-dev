@@ -26,7 +26,7 @@ services:
       - "5173:5173"
     environment:
       # Підключення до локального Supabase для frontend (з браузера)
-      - VITE_SUPABASE_URL=http://localhost:54321
+      - VITE_SUPABASE_URL=http://127.0.0.1:54321
       - VITE_SUPABASE_ANON_KEY=${VITE_SUPABASE_ANON_KEY}
       - VITE_STRIPE_PUBLIC_KEY=${VITE_STRIPE_PUBLIC_KEY}
       - VITE_CHAT_ASSISTANT_API_URL=http://localhost:8001
@@ -77,6 +77,146 @@ services:
       - sublab-network
     volumes:
       - ./chat-assistant-api:/app
+
+  # SubLab V1 - Orchestrator
+  sublab-v1:
+    build:
+      context: ./sublab-v1
+      dockerfile: Dockerfile
+    container_name: sublab-v1
+    ports:
+      - "8002:8000"
+    environment:
+      - SUPABASE_URL=http://host.docker.internal:54321
+      - SUPABASE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+    env_file:
+      - .env
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - sublab-network
+    profiles:
+      - sublab-v1
+
+  # SubLab V2 - AI Generator
+  sublab-v2:
+    build:
+      context: ./sublab-v2
+      dockerfile: Dockerfile
+    container_name: sublab-v2
+    ports:
+      - "8003:8000"
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - REPLICATE_API_TOKEN=${REPLICATE_API_TOKEN}
+      - SUPABASE_URL=http://host.docker.internal:54321
+      - SUPABASE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+    env_file:
+      - .env
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - sublab-network
+    profiles:
+      - sublab-v2
+
+  # SubLab V3 - Voice Engine
+  sublab-v3:
+    build:
+      context: ./sublab-v3
+      dockerfile: Dockerfile
+    container_name: sublab-v3
+    ports:
+      - "8004:8000"
+    environment:
+      - ELEVENLABS_API_KEY=${ELEVENLABS_API_KEY}
+      - SUPABASE_URL=http://host.docker.internal:54321
+      - SUPABASE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+    env_file:
+      - .env
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - sublab-network
+    profiles:
+      - sublab-v3
+
+  # SubLab V4 - Audio Processing
+  sublab-v4:
+    build:
+      context: ./sublab-v4
+      dockerfile: Dockerfile
+    container_name: sublab-v4
+    ports:
+      - "8005:8000"
+    environment:
+      - SUPABASE_URL=http://host.docker.internal:54321
+      - SUPABASE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+    env_file:
+      - .env
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - sublab-network
+    profiles:
+      - sublab-v4
+
+  # SubLab V5 - Final Audio Mixing
+  sublab-v5:
+    build:
+      context: ./sublab-v5
+      dockerfile: Dockerfile
+    container_name: sublab-v5
+    ports:
+      - "8006:8000"
+    environment:
+      - SUPABASE_URL=http://host.docker.internal:54321
+      - SUPABASE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+    env_file:
+      - .env
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - sublab-network
+    profiles:
+      - sublab-v5
+
 
 networks:
   sublab-network:

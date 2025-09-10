@@ -52,8 +52,6 @@ declare -A sublab_services=(
     ["sublab-v1"]="SubLab V1 (Orchestrator)"
     ["sublab-v2"]="SubLab V2 (Modules & Images)"
     ["sublab-v3"]="SubLab V3 (Audio Generation)"
-    ["sublab-v4"]="SubLab V4 (Audio Assembly)"
-    ["sublab-v5"]="SubLab V5 (Audio Mixing)"
 )
 
 for service in "${!sublab_services[@]}"; do
